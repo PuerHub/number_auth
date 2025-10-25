@@ -1,0 +1,11 @@
+{
+  "name": "aliyun_number_auth",
+  "version": "1.0.0",
+  "description": "Please describe the basic information.",
+  "main": "index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "numberauth_standard": "file:./libs/auth_number_product-v2.0.17-log-online-standard-release.har"
+  }
+}
