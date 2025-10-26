@@ -1,4 +1,9 @@
 import 'aliyun_number_auth_platform_interface.dart';
+import 'aliyun_number_auth_ui_config.dart';
+import 'aliyun_number_auth_method_channel.dart';
+
+export 'aliyun_number_auth_ui_config.dart';
+export 'aliyun_number_auth_method_channel.dart' show AuthPageClickCallback;
 
 /// Result class for number authentication operations
 class AliyunNumberAuthResult {
@@ -152,5 +157,113 @@ class AliyunNumberAuth {
   /// ```
   static Future<AppSignatureInfo> getAppSignatureInfo() async {
     return AliyunNumberAuthPlatform.instance.getAppSignatureInfo();
+  }
+
+  /// Get login token for one-key login (displays authorization page)
+  ///
+  /// [timeout] is the timeout in milliseconds (default: 5000ms)
+  /// [uiConfig] is optional UI configuration for customizing the authorization page
+  /// Returns the login token on success
+  ///
+  /// This method displays an authorization page with the masked phone number.
+  /// User clicks the login button to authorize and get the token.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Without UI customization
+  /// final result = await AliyunNumberAuth.getLoginToken(timeout: 5000);
+  ///
+  /// // With UI customization
+  /// final config = AliyunNumberAuthUIConfig(
+  ///   logoImgPath: 'assets/logo.png',
+  ///   sloganText: 'Welcome to Our App',
+  ///   privacyOneTitle: '《Privacy Policy》',
+  ///   privacyOneUrl: 'https://example.com/privacy',
+  ///   loginButtonText: 'Login',
+  ///   navTitle: 'One-Key Login',
+  /// );
+  /// final result = await AliyunNumberAuth.getLoginToken(
+  ///   timeout: 5000,
+  ///   uiConfig: config,
+  /// );
+  ///
+  /// if (result.isSuccess) {
+  ///   print('Login Token: ${result.message}');
+  ///   // Send token to your server for verification
+  /// } else {
+  ///   print('Login failed: ${result.code} - ${result.message}');
+  /// }
+  /// ```
+  static Future<AliyunNumberAuthResult> getLoginToken({
+    int timeout = 5000,
+    AliyunNumberAuthUIConfig? uiConfig,
+  }) async {
+    return AliyunNumberAuthPlatform.instance.getLoginToken(timeout, uiConfig);
+  }
+
+  /// Pre-login to accelerate authorization page display (optional)
+  ///
+  /// [timeout] is the timeout in milliseconds (default: 5000ms)
+  /// This method can speed up the subsequent `getLoginToken` call
+  ///
+  /// Call this method 2-3 seconds before showing the login page
+  /// to pre-fetch necessary parameters and accelerate authorization page display.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Call on splash screen or app startup
+  /// await AliyunNumberAuth.accelerateLoginPage(timeout: 5000);
+  ///
+  /// // Later, when showing login page
+  /// await AliyunNumberAuth.getLoginToken();
+  /// ```
+  static Future<AliyunNumberAuthResult> accelerateLoginPage({
+    int timeout = 5000,
+  }) async {
+    return AliyunNumberAuthPlatform.instance.accelerateLoginPage(timeout);
+  }
+
+  /// Quit/dismiss the authorization page
+  ///
+  /// Call this method to manually close the authorization page.
+  /// Usually called when user clicks a custom close button.
+  ///
+  /// Example:
+  /// ```dart
+  /// await AliyunNumberAuth.quitLoginPage();
+  /// ```
+  static Future<AliyunNumberAuthResult> quitLoginPage() async {
+    return AliyunNumberAuthPlatform.instance.quitLoginPage();
+  }
+
+  /// Set callback for authorization page UI click events
+  ///
+  /// This callback will be triggered when user interacts with the authorization page.
+  /// The [code] parameter indicates which UI element was clicked.
+  /// The [jsonString] parameter contains additional information about the click event.
+  ///
+  /// Common click codes:
+  /// - `700000`: User clicked the login button
+  /// - `700001`: User clicked the switch account button
+  /// - `700002`: User clicked the close/back button
+  /// - `700003`: User clicked outside the dialog (tap mask to close)
+  /// - `700004`: User clicked the privacy agreement checkbox
+  ///
+  /// Example:
+  /// ```dart
+  /// AliyunNumberAuth.setAuthPageClickCallback((code, jsonString) {
+  ///   print('Auth page clicked: $code');
+  ///   print('Details: $jsonString');
+  ///
+  ///   if (code == '700002') {
+  ///     print('User closed the auth page');
+  ///   }
+  /// });
+  /// ```
+  static void setAuthPageClickCallback(AuthPageClickCallback? callback) {
+    final platform = AliyunNumberAuthPlatform.instance;
+    if (platform is MethodChannelAliyunNumberAuth) {
+      platform.setAuthPageClickCallback(callback);
+    }
   }
 }

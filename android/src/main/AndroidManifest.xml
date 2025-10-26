@@ -1,3 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="com.puerhub.aliyun_number_auth">
+
+  <application>
+    <!-- Aliyun Number Auth Login Activity -->
+    <!-- Dialog mode configuration: uses dialog theme and 'behind' orientation -->
+    <activity
+      android:name="com.mobile.auth.gatewayauth.LoginAuthActivity"
+      android:theme="@style/authsdk_activity_dialog"
+      android:screenOrientation="behind"
+      android:launchMode="singleTop"
+      android:exported="false" />
+  </application>
 </manifest>

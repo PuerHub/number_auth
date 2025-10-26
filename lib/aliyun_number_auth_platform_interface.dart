@@ -1,6 +1,7 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'aliyun_number_auth.dart';
+import 'aliyun_number_auth_ui_config.dart';
 import 'aliyun_number_auth_method_channel.dart';
 
 abstract class AliyunNumberAuthPlatform extends PlatformInterface {
@@ -47,5 +48,23 @@ abstract class AliyunNumberAuthPlatform extends PlatformInterface {
   /// Get application signature information for Aliyun console configuration
   Future<AppSignatureInfo> getAppSignatureInfo() {
     throw UnimplementedError('getAppSignatureInfo() has not been implemented.');
+  }
+
+  /// Get login token for one-key login (displays authorization page)
+  Future<AliyunNumberAuthResult> getLoginToken(
+    int timeout,
+    AliyunNumberAuthUIConfig? config,
+  ) {
+    throw UnimplementedError('getLoginToken() has not been implemented.');
+  }
+
+  /// Pre-login to accelerate authorization page display
+  Future<AliyunNumberAuthResult> accelerateLoginPage(int timeout) {
+    throw UnimplementedError('accelerateLoginPage() has not been implemented.');
+  }
+
+  /// Quit/dismiss the authorization page
+  Future<AliyunNumberAuthResult> quitLoginPage() {
+    throw UnimplementedError('quitLoginPage() has not been implemented.');
   }
 }
