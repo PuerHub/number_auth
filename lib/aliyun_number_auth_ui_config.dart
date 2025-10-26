@@ -69,32 +69,30 @@ class AliyunNumberAuthUIConfig {
   });
 
   /// Convert to map for platform channel
-  Map<String, dynamic> toMap() {
-    return {
-      'logoImgPath': logoImgPath,
-      'sloganText': sloganText,
-      'privacyOneTitle': privacyOneTitle,
-      'privacyOneUrl': privacyOneUrl,
-      'privacyTwoTitle': privacyTwoTitle,
-      'privacyTwoUrl': privacyTwoUrl,
-      'loginButtonText': loginButtonText,
-      'navTitle': navTitle,
-      'hideNav': hideNav,
-      'hideSwitchButton': hideSwitchButton,
-      'backgroundColor': backgroundColor,
-      'navBarColor': navBarColor,
-      'loginButtonColor': loginButtonColor,
-      'textColor': textColor,
-    };
-  }
+  /// Only includes non-null values to reduce data transfer
+  Map<String, dynamic> toMap() => {
+    if (logoImgPath != null) 'logoImgPath': logoImgPath,
+    if (sloganText != null) 'sloganText': sloganText,
+    if (privacyOneTitle != null) 'privacyOneTitle': privacyOneTitle,
+    if (privacyOneUrl != null) 'privacyOneUrl': privacyOneUrl,
+    if (privacyTwoTitle != null) 'privacyTwoTitle': privacyTwoTitle,
+    if (privacyTwoUrl != null) 'privacyTwoUrl': privacyTwoUrl,
+    if (loginButtonText != null) 'loginButtonText': loginButtonText,
+    if (navTitle != null) 'navTitle': navTitle,
+    if (hideNav != null) 'hideNav': hideNav,
+    if (hideSwitchButton != null) 'hideSwitchButton': hideSwitchButton,
+    if (backgroundColor != null) 'backgroundColor': backgroundColor,
+    if (navBarColor != null) 'navBarColor': navBarColor,
+    if (loginButtonColor != null) 'loginButtonColor': loginButtonColor,
+    if (textColor != null) 'textColor': textColor,
+  };
 
   @override
-  String toString() {
-    return 'AliyunNumberAuthUIConfig('
-        'logoImgPath: $logoImgPath, '
-        'sloganText: $sloganText, '
-        'privacyOneTitle: $privacyOneTitle, '
-        'navTitle: $navTitle'
-        ')';
-  }
+  String toString() =>
+      'AliyunNumberAuthUIConfig('
+      'logoImgPath: $logoImgPath, '
+      'sloganText: $sloganText, '
+      'privacyOneTitle: $privacyOneTitle, '
+      'navTitle: $navTitle'
+      ')';
 }

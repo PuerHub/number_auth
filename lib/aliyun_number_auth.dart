@@ -1,9 +1,11 @@
 import 'aliyun_number_auth_platform_interface.dart';
 import 'aliyun_number_auth_ui_config.dart';
 import 'aliyun_number_auth_method_channel.dart';
+import 'aliyun_number_auth_constants.dart';
 
 export 'aliyun_number_auth_ui_config.dart';
 export 'aliyun_number_auth_method_channel.dart' show AuthPageClickCallback;
+export 'aliyun_number_auth_constants.dart';
 
 /// Result class for number authentication operations
 class AliyunNumberAuthResult {
@@ -14,16 +16,25 @@ class AliyunNumberAuthResult {
   final String message;
 
   /// Whether the operation was successful
-  bool get isSuccess => code == '600000' || code == 'PNS_SUCCESS';
+  bool get isSuccess => AliyunNumberAuthCode.isSuccess(code);
 
-  AliyunNumberAuthResult({required this.code, required this.message});
+  const AliyunNumberAuthResult({required this.code, required this.message});
 
-  factory AliyunNumberAuthResult.fromMap(Map<String, dynamic> map) {
-    return AliyunNumberAuthResult(
-      code: map['code'] as String? ?? '',
-      message: map['message'] as String? ?? '',
-    );
-  }
+  factory AliyunNumberAuthResult.fromMap(Map<String, dynamic> map) =>
+      AliyunNumberAuthResult(
+        code: map['code'] as String? ?? '',
+        message: map['message'] as String? ?? '',
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AliyunNumberAuthResult &&
+          code == other.code &&
+          message == other.message;
+
+  @override
+  int get hashCode => Object.hash(code, message);
 
   @override
   String toString() => 'AliyunNumberAuthResult(code: $code, message: $message)';
@@ -40,35 +51,43 @@ class AppSignatureInfo {
   /// Additional identifier (App ID for Harmony, empty for others)
   final String? appIdentifier;
 
-  AppSignatureInfo({
+  const AppSignatureInfo({
     required this.packageName,
     required this.signature,
     this.appIdentifier,
   });
 
-  factory AppSignatureInfo.fromMap(Map<String, dynamic> map) {
-    return AppSignatureInfo(
-      packageName: map['packageName'] as String? ?? '',
-      signature: map['signature'] as String? ?? '',
-      appIdentifier: map['appIdentifier'] as String?,
-    );
-  }
+  factory AppSignatureInfo.fromMap(Map<String, dynamic> map) =>
+      AppSignatureInfo(
+        packageName: map['packageName'] as String? ?? '',
+        signature: map['signature'] as String? ?? '',
+        appIdentifier: map['appIdentifier'] as String?,
+      );
 
   @override
-  String toString() {
-    final buffer = StringBuffer();
-    buffer.writeln('App Signature Information:');
-    buffer.writeln('Package Name: $packageName');
-    buffer.writeln('Signature: $signature');
-    if (appIdentifier != null && appIdentifier!.isNotEmpty) {
-      buffer.writeln('App Identifier: $appIdentifier');
-    }
-    return buffer.toString();
-  }
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AppSignatureInfo &&
+          packageName == other.packageName &&
+          signature == other.signature &&
+          appIdentifier == other.appIdentifier;
+
+  @override
+  int get hashCode => Object.hash(packageName, signature, appIdentifier);
+
+  @override
+  String toString() => [
+    'App Signature Information:',
+    'Package Name: $packageName',
+    'Signature: $signature',
+    if (appIdentifier?.isNotEmpty ?? false) 'App Identifier: $appIdentifier',
+  ].join('\n');
 }
 
 /// Main class for Aliyun Number Authentication
 class AliyunNumberAuth {
+  AliyunNumberAuth._();
+
   /// Initialize the Aliyun Number Auth SDK
   ///
   /// [secretInfo] is the authentication scheme secret key obtained from Aliyun console
@@ -78,9 +97,8 @@ class AliyunNumberAuth {
   /// ```dart
   /// await AliyunNumberAuth.initialize('your_secret_info');
   /// ```
-  static Future<AliyunNumberAuthResult> initialize(String secretInfo) async {
-    return AliyunNumberAuthPlatform.instance.initialize(secretInfo);
-  }
+  static Future<AliyunNumberAuthResult> initialize(String secretInfo) =>
+      AliyunNumberAuthPlatform.instance.initialize(secretInfo);
 
   /// Get verification token for the current phone number
   ///
@@ -97,11 +115,8 @@ class AliyunNumberAuth {
   ///   print('Error: ${result.code} - ${result.message}');
   /// }
   /// ```
-  static Future<AliyunNumberAuthResult> getVerifyToken({
-    int timeout = 5000,
-  }) async {
-    return AliyunNumberAuthPlatform.instance.getVerifyToken(timeout);
-  }
+  static Future<AliyunNumberAuthResult> getVerifyToken({int timeout = 5000}) =>
+      AliyunNumberAuthPlatform.instance.getVerifyToken(timeout);
 
   /// Pre-login to accelerate token retrieval (optional)
   ///
@@ -115,9 +130,7 @@ class AliyunNumberAuth {
   /// ```
   static Future<AliyunNumberAuthResult> accelerateVerify({
     int timeout = 5000,
-  }) async {
-    return AliyunNumberAuthPlatform.instance.accelerateVerify(timeout);
-  }
+  }) => AliyunNumberAuthPlatform.instance.accelerateVerify(timeout);
 
   /// Check if number authentication environment is available
   ///
@@ -132,9 +145,8 @@ class AliyunNumberAuth {
   ///   print('Number auth not supported: ${result.message}');
   /// }
   /// ```
-  static Future<AliyunNumberAuthResult> checkEnvironment() async {
-    return AliyunNumberAuthPlatform.instance.checkEnvironment();
-  }
+  static Future<AliyunNumberAuthResult> checkEnvironment() =>
+      AliyunNumberAuthPlatform.instance.checkEnvironment();
 
   /// Get application signature information for Aliyun console configuration
   ///
@@ -155,9 +167,8 @@ class AliyunNumberAuth {
   ///   print('App Identifier: ${info.appIdentifier}');
   /// }
   /// ```
-  static Future<AppSignatureInfo> getAppSignatureInfo() async {
-    return AliyunNumberAuthPlatform.instance.getAppSignatureInfo();
-  }
+  static Future<AppSignatureInfo> getAppSignatureInfo() =>
+      AliyunNumberAuthPlatform.instance.getAppSignatureInfo();
 
   /// Get login token for one-key login (displays authorization page)
   ///
@@ -197,9 +208,7 @@ class AliyunNumberAuth {
   static Future<AliyunNumberAuthResult> getLoginToken({
     int timeout = 5000,
     AliyunNumberAuthUIConfig? uiConfig,
-  }) async {
-    return AliyunNumberAuthPlatform.instance.getLoginToken(timeout, uiConfig);
-  }
+  }) => AliyunNumberAuthPlatform.instance.getLoginToken(timeout, uiConfig);
 
   /// Pre-login to accelerate authorization page display (optional)
   ///
@@ -219,9 +228,7 @@ class AliyunNumberAuth {
   /// ```
   static Future<AliyunNumberAuthResult> accelerateLoginPage({
     int timeout = 5000,
-  }) async {
-    return AliyunNumberAuthPlatform.instance.accelerateLoginPage(timeout);
-  }
+  }) => AliyunNumberAuthPlatform.instance.accelerateLoginPage(timeout);
 
   /// Quit/dismiss the authorization page
   ///
@@ -232,9 +239,8 @@ class AliyunNumberAuth {
   /// ```dart
   /// await AliyunNumberAuth.quitLoginPage();
   /// ```
-  static Future<AliyunNumberAuthResult> quitLoginPage() async {
-    return AliyunNumberAuthPlatform.instance.quitLoginPage();
-  }
+  static Future<AliyunNumberAuthResult> quitLoginPage() =>
+      AliyunNumberAuthPlatform.instance.quitLoginPage();
 
   /// Set callback for authorization page UI click events
   ///
@@ -242,12 +248,12 @@ class AliyunNumberAuth {
   /// The [code] parameter indicates which UI element was clicked.
   /// The [jsonString] parameter contains additional information about the click event.
   ///
-  /// Common click codes:
-  /// - `700000`: User clicked the login button
-  /// - `700001`: User clicked the switch account button
-  /// - `700002`: User clicked the close/back button
-  /// - `700003`: User clicked outside the dialog (tap mask to close)
-  /// - `700004`: User clicked the privacy agreement checkbox
+  /// Common click codes (see [AliyunNumberAuthCode]):
+  /// - [AliyunNumberAuthCode.clickLogin]: User clicked the login button
+  /// - [AliyunNumberAuthCode.clickSwitch]: User clicked the switch account button
+  /// - [AliyunNumberAuthCode.clickClose]: User clicked the close/back button
+  /// - [AliyunNumberAuthCode.clickMask]: User clicked outside the dialog (tap mask to close)
+  /// - [AliyunNumberAuthCode.clickCheckbox]: User clicked the privacy agreement checkbox
   ///
   /// Example:
   /// ```dart
@@ -255,7 +261,7 @@ class AliyunNumberAuth {
   ///   print('Auth page clicked: $code');
   ///   print('Details: $jsonString');
   ///
-  ///   if (code == '700002') {
+  ///   if (code == AliyunNumberAuthCode.clickClose) {
   ///     print('User closed the auth page');
   ///   }
   /// });

@@ -41,12 +41,15 @@ class MethodChannelAliyunNumberAuth extends AliyunNumberAuthPlatform {
     _authPageClickCallback = callback;
   }
 
-  @override
-  Future<AliyunNumberAuthResult> initialize(String secretInfo) async {
+  /// Common method to invoke platform methods and handle errors
+  Future<AliyunNumberAuthResult> _invokeMethod(
+    String method, [
+    Map<String, dynamic>? arguments,
+  ]) async {
     try {
       final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
-        'initialize',
-        {'secretInfo': secretInfo},
+        method,
+        arguments,
       );
       return _parseResult(result);
     } on PlatformException catch (e) {
@@ -58,51 +61,28 @@ class MethodChannelAliyunNumberAuth extends AliyunNumberAuthPlatform {
   }
 
   @override
-  Future<AliyunNumberAuthResult> getVerifyToken(int timeout) async {
-    try {
-      final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
-        'getVerifyToken',
-        {'timeout': timeout},
-      );
-      return _parseResult(result);
-    } on PlatformException catch (e) {
-      return AliyunNumberAuthResult(
-        code: e.code,
-        message: e.message ?? 'Unknown error',
-      );
-    }
-  }
+  Future<AliyunNumberAuthResult> initialize(String secretInfo) =>
+      _invokeMethod('initialize', {'secretInfo': secretInfo});
 
   @override
-  Future<AliyunNumberAuthResult> accelerateVerify(int timeout) async {
-    try {
-      final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
-        'accelerateVerify',
-        {'timeout': timeout},
-      );
-      return _parseResult(result);
-    } on PlatformException catch (e) {
-      return AliyunNumberAuthResult(
-        code: e.code,
-        message: e.message ?? 'Unknown error',
-      );
-    }
-  }
+  Future<AliyunNumberAuthResult> getVerifyToken(int timeout) =>
+      _invokeMethod('getVerifyToken', {'timeout': timeout});
 
   @override
-  Future<AliyunNumberAuthResult> checkEnvironment() async {
-    try {
-      final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
-        'checkEnvironment',
-      );
-      return _parseResult(result);
-    } on PlatformException catch (e) {
-      return AliyunNumberAuthResult(
-        code: e.code,
-        message: e.message ?? 'Unknown error',
-      );
-    }
-  }
+  Future<AliyunNumberAuthResult> accelerateVerify(int timeout) =>
+      _invokeMethod('accelerateVerify', {'timeout': timeout});
+
+  @override
+  Future<AliyunNumberAuthResult> checkEnvironment() =>
+      _invokeMethod('checkEnvironment');
+
+  @override
+  Future<AliyunNumberAuthResult> accelerateLoginPage(int timeout) =>
+      _invokeMethod('accelerateLoginPage', {'timeout': timeout});
+
+  @override
+  Future<AliyunNumberAuthResult> quitLoginPage() =>
+      _invokeMethod('quitLoginPage');
 
   @override
   Future<AppSignatureInfo> getAppSignatureInfo() async {
@@ -121,7 +101,7 @@ class MethodChannelAliyunNumberAuth extends AliyunNumberAuthPlatform {
 
   AliyunNumberAuthResult _parseResult(Map<Object?, Object?>? result) {
     if (result == null) {
-      return AliyunNumberAuthResult(
+      return const AliyunNumberAuthResult(
         code: 'UNKNOWN_ERROR',
         message: 'No result returned',
       );
@@ -135,7 +115,7 @@ class MethodChannelAliyunNumberAuth extends AliyunNumberAuthPlatform {
 
   AppSignatureInfo _parseSignatureInfo(Map<Object?, Object?>? result) {
     if (result == null) {
-      return AppSignatureInfo(
+      return const AppSignatureInfo(
         packageName: 'ERROR',
         signature: 'No result returned',
       );
@@ -162,37 +142,6 @@ class MethodChannelAliyunNumberAuth extends AliyunNumberAuthPlatform {
       final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
         'getLoginToken',
         arguments,
-      );
-      return _parseResult(result);
-    } on PlatformException catch (e) {
-      return AliyunNumberAuthResult(
-        code: e.code,
-        message: e.message ?? 'Unknown error',
-      );
-    }
-  }
-
-  @override
-  Future<AliyunNumberAuthResult> accelerateLoginPage(int timeout) async {
-    try {
-      final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
-        'accelerateLoginPage',
-        {'timeout': timeout},
-      );
-      return _parseResult(result);
-    } on PlatformException catch (e) {
-      return AliyunNumberAuthResult(
-        code: e.code,
-        message: e.message ?? 'Unknown error',
-      );
-    }
-  }
-
-  @override
-  Future<AliyunNumberAuthResult> quitLoginPage() async {
-    try {
-      final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
-        'quitLoginPage',
       );
       return _parseResult(result);
     } on PlatformException catch (e) {

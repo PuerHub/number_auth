@@ -54,53 +54,64 @@ public class AliyunNumberAuthPlugin: NSObject, FlutterPlugin {
         }
     }
 
+    // MARK: - Helper Methods
+
+    /// Get root view controller safely across iOS versions
+    private func getRootViewController() -> UIViewController? {
+        if #available(iOS 13.0, *) {
+            return UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap { $0.windows }
+                .first(where: { $0.isKeyWindow })?
+                .rootViewController
+        } else {
+            return UIApplication.shared.keyWindow?.rootViewController
+        }
+    }
+
+    /// Create a standard response dictionary
+    private func createResponse(code: String, message: String?) -> [String: Any] {
+        return [
+            "code": code,
+            "message": message ?? ""
+        ]
+    }
+
+    /// Create an image from a solid color
+    private func imageFromColor(_ color: UIColor, size: CGSize = CGSize(width: 10, height: 10)) -> UIImage? {
+        UIGraphicsBeginImageContext(size)
+        defer { UIGraphicsEndImageContext() }
+
+        guard let context = UIGraphicsGetCurrentContext() else { return nil }
+        context.setFillColor(color.cgColor)
+        context.fill(CGRect(origin: .zero, size: size))
+
+        return UIGraphicsGetImageFromCurrentImageContext()
+    }
+
+    // MARK: - SDK Methods
+
     private func initialize(secretInfo: String, result: @escaping FlutterResult) {
         TXCommonHandler.sharedInstance().setAuthSDKInfo(secretInfo) { resultCode, msg in
-            let response: [String: Any] = [
-                "code": resultCode,
-                "message": msg ?? "Initialization completed"
-            ]
-            result(response)
+            result(self.createResponse(code: resultCode, message: msg ?? "Initialization completed"))
         }
     }
 
     private func getVerifyToken(timeout: Int, result: @escaping FlutterResult) {
         TXCommonHandler.sharedInstance().getVerifyToken(withTimeout: timeout) { resultCode, msg in
-            if resultCode == "600000" {
-                // Success - msg contains the token
-                let response: [String: Any] = [
-                    "code": resultCode,
-                    "message": msg ?? ""
-                ]
-                result(response)
-            } else {
-                // Failed
-                let response: [String: Any] = [
-                    "code": resultCode,
-                    "message": msg ?? "Unknown error"
-                ]
-                result(response)
-            }
+            result(self.createResponse(code: resultCode, message: msg ?? (resultCode == "600000" ? "" : "Unknown error")))
         }
     }
 
     private func accelerateVerify(timeout: Int, result: @escaping FlutterResult) {
         TXCommonHandler.sharedInstance().accelerateVerify(withTimeout: timeout) { resultCode, msg in
-            let response: [String: Any] = [
-                "code": resultCode,
-                "message": msg ?? "Accelerate verify completed"
-            ]
-            result(response)
+            result(self.createResponse(code: resultCode, message: msg ?? "Accelerate verify completed"))
         }
     }
 
     private func checkEnvironment(result: @escaping FlutterResult) {
         TXCommonHandler.sharedInstance().checkEnvAvailable(with: PNSAuthType.loginToken) { resultCode, msg in
-            let response: [String: Any] = [
-                "code": resultCode,
-                "message": msg ?? "Environment check completed"
-            ]
-            result(response)
+            result(self.createResponse(code: resultCode, message: msg ?? "Environment check completed"))
         }
     }
 
@@ -130,12 +141,8 @@ public class AliyunNumberAuthPlugin: NSObject, FlutterPlugin {
     }
 
     private func getLoginToken(timeout: Int, config: [String: Any]?, result: @escaping FlutterResult) {
-        guard let rootViewController = UIApplication.shared.keyWindow?.rootViewController else {
-            let response: [String: Any] = [
-                "code": "NO_CONTROLLER",
-                "message": "Unable to get root view controller"
-            ]
-            result(response)
+        guard let rootViewController = getRootViewController() else {
+            result(createResponse(code: "NO_CONTROLLER", message: "Unable to get root view controller"))
             return
         }
 
@@ -199,36 +206,31 @@ public class AliyunNumberAuthPlugin: NSObject, FlutterPlugin {
                 model.changeBtnIsHidden = hideSwitchButton
             }
 
-            // Theme colors
-            if let backgroundColorStr = config["backgroundColor"] as? String {
-                if let color = hexStringToUIColor(hex: backgroundColorStr) {
-                    model.authPageBackgroundImage = nil
-                    // Note: SDK may require custom background image for color
-                }
+            // Theme colors - Fixed to properly apply colors
+            if let backgroundColorStr = config["backgroundColor"] as? String,
+               let color = hexStringToUIColor(hex: backgroundColorStr) {
+                model.authPageBackgroundImage = imageFromColor(color, size: CGSize(width: 10, height: 10))
             }
 
-            if let navBarColorStr = config["navBarColor"] as? String {
-                if let color = hexStringToUIColor(hex: navBarColorStr) {
-                    model.navColor = color
-                }
+            if let navBarColorStr = config["navBarColor"] as? String,
+               let color = hexStringToUIColor(hex: navBarColorStr) {
+                model.navColor = color
             }
 
-            if let loginButtonColorStr = config["loginButtonColor"] as? String {
-                if let color = hexStringToUIColor(hex: loginButtonColorStr) {
-                    model.loginBtnBgImgs = nil
-                    // Note: SDK may require custom button images for color
-                }
+            if let loginButtonColorStr = config["loginButtonColor"] as? String,
+               let color = hexStringToUIColor(hex: loginButtonColorStr) {
+                let buttonImage = imageFromColor(color, size: CGSize(width: 50, height: 50))
+                model.loginBtnBgImgs = [buttonImage, buttonImage, buttonImage] // normal, highlighted, disabled
             }
 
-            if let textColorStr = config["textColor"] as? String {
-                if let color = hexStringToUIColor(hex: textColorStr) {
-                    model.numberColor = color
-                    // Update slogan text color
-                    if let sloganText = model.sloganText?.string {
-                        model.sloganText = NSAttributedString(string: sloganText, attributes: [
-                            .foregroundColor: color
-                        ])
-                    }
+            if let textColorStr = config["textColor"] as? String,
+               let color = hexStringToUIColor(hex: textColorStr) {
+                model.numberColor = color
+                // Update slogan text color
+                if let sloganText = model.sloganText?.string {
+                    model.sloganText = NSAttributedString(string: sloganText, attributes: [
+                        .foregroundColor: color
+                    ])
                 }
             }
         } else {
@@ -241,41 +243,19 @@ public class AliyunNumberAuthPlugin: NSObject, FlutterPlugin {
         }
 
         TXCommonHandler.sharedInstance().getLoginToken(withTimeout: timeout, controller: rootViewController, model: model) { resultCode, msg in
-            if resultCode == "600000" {
-                // Success - got token
-                let response: [String: Any] = [
-                    "code": resultCode,
-                    "message": msg ?? ""
-                ]
-                result(response)
-            } else {
-                // Handle different result codes
-                let response: [String: Any] = [
-                    "code": resultCode,
-                    "message": msg ?? "Login failed"
-                ]
-                result(response)
-            }
+            result(self.createResponse(code: resultCode, message: msg ?? (resultCode == "600000" ? "" : "Login failed")))
         }
     }
 
     private func accelerateLoginPage(timeout: Int, result: @escaping FlutterResult) {
         TXCommonHandler.sharedInstance().accelerateLoginPage(withTimeout: timeout) { resultCode, msg in
-            let response: [String: Any] = [
-                "code": resultCode,
-                "message": msg ?? "Accelerate login page completed"
-            ]
-            result(response)
+            result(self.createResponse(code: resultCode, message: msg ?? "Accelerate login page completed"))
         }
     }
 
     private func quitLoginPage(result: @escaping FlutterResult) {
         TXCommonHandler.sharedInstance().cancelLoginVC(animated: true) { resultCode, msg in
-            let response: [String: Any] = [
-                "code": resultCode,
-                "message": msg ?? "Login page dismissed"
-            ]
-            result(response)
+            result(self.createResponse(code: resultCode, message: msg ?? "Login page dismissed"))
         }
     }
 

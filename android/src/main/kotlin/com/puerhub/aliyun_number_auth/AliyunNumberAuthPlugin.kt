@@ -23,6 +23,13 @@ import java.security.MessageDigest
 
 /** AliyunNumberAuthPlugin */
 class AliyunNumberAuthPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
+    companion object {
+        private val EMPTY_TOKEN_LISTENER = object : TokenResultListener {
+            override fun onTokenSuccess(token: String) {}
+            override fun onTokenFailed(code: String) {}
+        }
+    }
+
     private lateinit var channel: MethodChannel
     private lateinit var context: Context
     private var activity: Activity? = null
@@ -76,61 +83,82 @@ class AliyunNumberAuthPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         }
     }
 
-    private fun initialize(secretInfo: String, result: Result) {
-        try {
-            // Debug: Print secret info details
-            android.util.Log.d("AliyunNumberAuth", "Initializing with secret info length: ${secretInfo.length}")
-            android.util.Log.d("AliyunNumberAuth", "Secret info starts with: ${secretInfo.take(20)}...")
+    // MARK: - Helper Methods
 
-            // Debug: Print current app signature
-            try {
-                val packageName = context.packageName
-                val packageManager = context.packageManager
-                val signatures: Array<Signature>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    val packageInfo = packageManager.getPackageInfo(
-                        packageName,
-                        PackageManager.GET_SIGNING_CERTIFICATES
-                    )
-                    packageInfo.signingInfo?.apkContentsSigners
-                } else {
-                    @Suppress("DEPRECATION")
-                    val packageInfo = packageManager.getPackageInfo(
-                        packageName,
-                        PackageManager.GET_SIGNATURES
-                    )
-                    @Suppress("DEPRECATION")
-                    packageInfo.signatures
-                }
+    /**
+     * Get app signature MD5 hash
+     * @return MD5 hash string (lowercase, no colons) or null if error
+     */
+    private fun getSignatureMD5(): String? {
+        return try {
+            val packageName = context.packageName
+            val packageManager = context.packageManager
 
-                if (signatures != null && signatures.isNotEmpty()) {
-                    val signature = signatures[0]
-                    val md = MessageDigest.getInstance("MD5")
-                    md.update(signature.toByteArray())
-                    val digest = md.digest()
-                    val hexString = StringBuilder()
-                    for (byte in digest) {
-                        val hex = Integer.toHexString(0xFF and byte.toInt())
-                        if (hex.length == 1) {
-                            hexString.append('0')
-                        }
-                        hexString.append(hex)
-                    }
-                    android.util.Log.d("AliyunNumberAuth", "Current app signature (MD5): ${hexString.toString()}")
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("AliyunNumberAuth", "Failed to get signature for debug: ${e.message}")
+            val signatures: Array<Signature>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+                    .signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES).signatures
             }
 
-            authHelper = PhoneNumberAuthHelper.getInstance(context, object : TokenResultListener {
-                override fun onTokenSuccess(token: String) {
-                    // This callback is for getVerifyToken, not initialize
-                }
+            signatures?.firstOrNull()?.let { signature ->
+                MessageDigest.getInstance("MD5")
+                    .digest(signature.toByteArray())
+                    .joinToString("") { "%02x".format(it) }
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
 
-                override fun onTokenFailed(code: String) {
-                    // This callback is for getVerifyToken, not initialize
-                }
-            })
+    /**
+     * Parse color string to Android Color int
+     * Supports formats: "0xFFFFFFFF", "#FFFFFFFF"
+     * @return Color int or null if invalid
+     */
+    private fun parseColor(colorStr: String?): Int? {
+        return colorStr?.let {
+            try {
+                android.graphics.Color.parseColor(it.replace("0x", "#"))
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
 
+    /**
+     * Calculate brightness of a color (0-255)
+     * Used to determine if light or dark mode should be used
+     */
+    private fun getColorBrightness(color: Int): Int {
+        return (android.graphics.Color.red(color) * 299 +
+                android.graphics.Color.green(color) * 587 +
+                android.graphics.Color.blue(color) * 114) / 1000
+    }
+
+    /**
+     * Check if authHelper is initialized, return error if not
+     * @return true if initialized, false if not (and sends error to result)
+     */
+    private fun requireAuthHelper(result: Result): Boolean {
+        if (authHelper == null) {
+            result.success(
+                mapOf(
+                    "code" to "NOT_INITIALIZED",
+                    "message" to "SDK not initialized. Call initialize() first"
+                )
+            )
+            return false
+        }
+        return true
+    }
+
+    // MARK: - SDK Methods
+
+    private fun initialize(secretInfo: String, result: Result) {
+        try {
+            authHelper = PhoneNumberAuthHelper.getInstance(context, EMPTY_TOKEN_LISTENER)
             authHelper?.setAuthSDKInfo(secretInfo)
 
             result.success(
@@ -140,7 +168,6 @@ class AliyunNumberAuthPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 )
             )
         } catch (e: Exception) {
-            android.util.Log.e("AliyunNumberAuth", "Initialization error: ${e.message}", e)
             result.success(
                 mapOf(
                     "code" to "INIT_ERROR",
@@ -151,15 +178,7 @@ class AliyunNumberAuthPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     private fun getVerifyToken(timeout: Int, result: Result) {
-        if (authHelper == null) {
-            result.success(
-                mapOf(
-                    "code" to "NOT_INITIALIZED",
-                    "message" to "SDK not initialized. Call initialize() first"
-                )
-            )
-            return
-        }
+        if (!requireAuthHelper(result)) return
 
         try {
             authHelper?.setAuthListener(object : TokenResultListener {
@@ -194,15 +213,7 @@ class AliyunNumberAuthPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     private fun accelerateVerify(timeout: Int, result: Result) {
-        if (authHelper == null) {
-            result.success(
-                mapOf(
-                    "code" to "NOT_INITIALIZED",
-                    "message" to "SDK not initialized. Call initialize() first"
-                )
-            )
-            return
-        }
+        if (!requireAuthHelper(result)) return
 
         try {
             authHelper?.accelerateVerify(timeout, object : PreLoginResultListener {
@@ -235,15 +246,7 @@ class AliyunNumberAuthPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     private fun checkEnvironment(result: Result) {
-        if (authHelper == null) {
-            result.success(
-                mapOf(
-                    "code" to "NOT_INITIALIZED",
-                    "message" to "SDK not initialized. Call initialize() first"
-                )
-            )
-            return
-        }
+        if (!requireAuthHelper(result)) return
 
         try {
             authHelper?.checkEnvAvailable(PhoneNumberAuthHelper.SERVICE_TYPE_AUTH)
@@ -267,56 +270,15 @@ class AliyunNumberAuthPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private fun getAppSignatureInfo(result: Result) {
         try {
             val packageName = context.packageName
-            val packageManager = context.packageManager
+            val signature = getSignatureMD5() ?: "No signature found"
 
-            val signatures: Array<Signature>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val packageInfo = packageManager.getPackageInfo(
-                    packageName,
-                    PackageManager.GET_SIGNING_CERTIFICATES
+            result.success(
+                mapOf(
+                    "packageName" to packageName,
+                    "signature" to signature,
+                    "appIdentifier" to null
                 )
-                packageInfo.signingInfo?.apkContentsSigners
-            } else {
-                @Suppress("DEPRECATION")
-                val packageInfo = packageManager.getPackageInfo(
-                    packageName,
-                    PackageManager.GET_SIGNATURES
-                )
-                @Suppress("DEPRECATION")
-                packageInfo.signatures
-            }
-
-            if (signatures != null && signatures.isNotEmpty()) {
-                val signature = signatures[0]
-                val md = MessageDigest.getInstance("MD5")
-                md.update(signature.toByteArray())
-                val digest = md.digest()
-
-                // Convert to hex string (lowercase, without colons)
-                val hexString = StringBuilder()
-                for (byte in digest) {
-                    val hex = Integer.toHexString(0xFF and byte.toInt())
-                    if (hex.length == 1) {
-                        hexString.append('0')
-                    }
-                    hexString.append(hex)
-                }
-
-                result.success(
-                    mapOf(
-                        "packageName" to packageName,
-                        "signature" to hexString.toString(),
-                        "appIdentifier" to null
-                    )
-                )
-            } else {
-                result.success(
-                    mapOf(
-                        "packageName" to packageName,
-                        "signature" to "No signature found",
-                        "appIdentifier" to null
-                    )
-                )
-            }
+            )
         } catch (e: Exception) {
             result.success(
                 mapOf(
@@ -329,15 +291,7 @@ class AliyunNumberAuthPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     private fun getLoginToken(timeout: Int, config: Map<String, Any?>?, result: Result) {
-        if (authHelper == null) {
-            result.success(
-                mapOf(
-                    "code" to "NOT_INITIALIZED",
-                    "message" to "SDK not initialized. Call initialize() first"
-                )
-            )
-            return
-        }
+        if (!requireAuthHelper(result)) return
 
         if (activity == null) {
             result.success(
@@ -373,7 +327,6 @@ class AliyunNumberAuthPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             // Apply custom UI configuration if provided
             if (config != null) {
                 // Logo image path
-                // Convert Flutter asset path to Android drawable resource name
                 val logoPath = config["logoImgPath"] as? String
                 if (logoPath != null) {
                     // Extract filename without extension from Flutter asset path
@@ -383,10 +336,7 @@ class AliyunNumberAuthPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
 
                 // Slogan text
-                val sloganText = config["sloganText"] as? String
-                if (sloganText != null) {
-                    builder.setSloganText(sloganText)
-                }
+                config["sloganText"]?.let { builder.setSloganText(it as String) }
 
                 // Privacy agreement one
                 val privacyOneTitle = config["privacyOneTitle"] as? String
@@ -403,82 +353,30 @@ class AliyunNumberAuthPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
 
                 // Login button text
-                val loginButtonText = config["loginButtonText"] as? String
-                if (loginButtonText != null) {
-                    builder.setLogBtnText(loginButtonText)
-                }
+                config["loginButtonText"]?.let { builder.setLogBtnText(it as String) }
 
                 // Navigation title
-                val navTitle = config["navTitle"] as? String
-                if (navTitle != null) {
-                    builder.setNavText(navTitle)
-                }
+                config["navTitle"]?.let { builder.setNavText(it as String) }
 
                 // Hide navigation
-                val hideNav = config["hideNav"] as? Boolean
-                builder.setNavHidden(hideNav ?: true)
+                builder.setNavHidden(config["hideNav"] as? Boolean ?: true)
 
                 // Hide switch account button
-                val hideSwitchButton = config["hideSwitchButton"] as? Boolean
-                builder.setSwitchAccHidden(hideSwitchButton ?: true)
+                builder.setSwitchAccHidden(config["hideSwitchButton"] as? Boolean ?: true)
 
                 // Theme colors
-                // Navigation bar color
-                val navBarColor = config["navBarColor"] as? String
-                if (navBarColor != null) {
-                    try {
-                        val color = android.graphics.Color.parseColor(
-                            navBarColor.replace("0x", "#")
-                        )
-                        builder.setNavColor(color)
-                        builder.setStatusBarColor(color)
-                    } catch (e: Exception) {
-                        // Ignore invalid color
-                    }
+                parseColor(config["navBarColor"] as? String)?.let { color ->
+                    builder.setNavColor(color).setStatusBarColor(color)
                 }
 
-                // Text colors
-                val textColor = config["textColor"] as? String
-                if (textColor != null) {
-                    try {
-                        val color = android.graphics.Color.parseColor(
-                            textColor.replace("0x", "#")
-                        )
-                        builder.setNumberColor(color)
-                        builder.setSloganTextColor(color)
-                        builder.setLogBtnTextColor(color)
-                    } catch (e: Exception) {
-                        // Ignore invalid color
-                    }
+                parseColor(config["textColor"] as? String)?.let { color ->
+                    builder.setNumberColor(color)
+                        .setSloganTextColor(color)
+                        .setLogBtnTextColor(color)
                 }
 
-                // Login button color
-                val loginButtonColor = config["loginButtonColor"] as? String
-                if (loginButtonColor != null) {
-                    try {
-                        val color = android.graphics.Color.parseColor(
-                            loginButtonColor.replace("0x", "#")
-                        )
-                        builder.setLogBtnBackgroundPath("authsdk_dialog_login_btn_bg")
-                    } catch (e: Exception) {
-                        // Ignore invalid color
-                    }
-                }
-
-                // Background color - using light/dark mode indicator
-                val backgroundColor = config["backgroundColor"] as? String
-                if (backgroundColor != null) {
-                    try {
-                        val colorValue = backgroundColor.replace("0x", "#")
-                        val color = android.graphics.Color.parseColor(colorValue)
-                        // Set light color mode based on background brightness
-                        val brightness = (android.graphics.Color.red(color) * 299 +
-                                android.graphics.Color.green(color) * 587 +
-                                android.graphics.Color.blue(color) * 114) / 1000
-                        builder.setLightColor(brightness > 128)
-                    } catch (e: Exception) {
-                        // Ignore invalid color
-                    }
+                parseColor(config["backgroundColor"] as? String)?.let { color ->
+                    builder.setLightColor(getColorBrightness(color) > 128)
                 }
             } else {
                 // No custom config provided, use defaults
@@ -567,15 +465,7 @@ class AliyunNumberAuthPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     private fun accelerateLoginPage(timeout: Int, result: Result) {
-        if (authHelper == null) {
-            result.success(
-                mapOf(
-                    "code" to "NOT_INITIALIZED",
-                    "message" to "SDK not initialized. Call initialize() first"
-                )
-            )
-            return
-        }
+        if (!requireAuthHelper(result)) return
 
         try {
             authHelper?.accelerateLoginPage(timeout, object : PreLoginResultListener {
